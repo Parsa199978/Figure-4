@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Figure A: Cohort Baselines</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* Tailwind gray-100 */
+            margin: 0;
+            padding: 1rem; /* Tailwind p-4 */
+        }
+        .main-container {
+            display: flex;
+            flex-direction: column; 
+            align-items: center;
+            gap: 2rem; 
+            padding-top: 1rem; 
+        }
+        .chart-wrapper {
+            width: 90%;
+            max-width: 900px;
+            min-width: 300px; 
+            background-color: white;
+            padding: 1.5rem; 
+            border-radius: 0.75rem; 
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1); 
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative; 
+        }
+        .chart-container {
+            position: relative;
+            width: 100%; 
+        }
+        #chartContainerA {
+            height: 1200px; 
+        }
+        .chart-title-individual {
+            font-size: 1.5em; 
+            font-weight: 600; 
+            color: #374151; 
+            text-align: center;
+            margin-bottom: 1rem; 
+            margin-top: 1rem; 
+        }
+        .figure-label { 
+            position: absolute;
+            top: 0.75rem; 
+            left: 0.75rem; 
+            font-size: 1.5em; 
+            font-weight: bold; 
+            color: #4B5563; 
+            z-index: 10; 
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <div class="chart-wrapper">
+            <h2 class="chart-title-individual">Cohort Baselines</h2>
+            <div class="chart-container" id="chartContainerA">
+                <canvas id="cohortChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Shared Color Logic ---
+        const sharedColorPalette = [
+            'rgba(239, 83, 80, 0.7)',   // Vivid Red
+            'rgba(255, 160, 0, 0.7)',  // Orange
+            'rgba(255, 238, 88, 0.7)', // Yellow
+            'rgba(102, 187, 106, 0.7)', // Green
+            'rgba(66, 165, 245, 0.7)',  // Blue
+            'rgba(126, 87, 194, 0.7)',  // Purple
+            'rgba(236, 64, 122, 0.7)',  // Pink
+            'rgba(0, 172, 193, 0.7)',   // Cyan
+            'rgba(124, 179, 66, 0.7)',  // Lime Green
+            'rgba(255, 112, 67, 0.7)',  // Deep Orange
+            'rgba(3, 155, 229, 0.7)',   // Light Blue
+            'rgba(142, 36, 170, 0.7)',  // Dark Purple
+            'rgba(216, 27, 96, 0.7)',   // Magenta
+            'rgba(0, 121, 107, 0.7)',   // Teal
+            'rgba(251, 192, 45, 0.7)',  // Amber
+            'rgba(92, 107, 192, 0.7)',  // Indigo
+            'rgba(240, 98, 146, 0.7)',  // Rose
+            'rgba(46, 125, 50, 0.7)',   // Dark Green
+            'rgba(26, 35, 126, 0.7)',   // Dark Indigo
+            'rgba(255, 82, 82, 0.7)'    // Bright Red
+        ];
+        let studyIdToColorMap = {};
+        let colorIndex = 0;
+
+        // Helper function to get or assign color for a base study ID
+        function getOrAssignColor(baseStudyId) {
+            if (!studyIdToColorMap[baseStudyId]) {
+                studyIdToColorMap[baseStudyId] = sharedColorPalette[colorIndex % sharedColorPalette.length];
+                colorIndex++;
+            }
+            return studyIdToColorMap[baseStudyId];
+        }
+
+        // --- Chart A: Primary Cohort Baselines ---
+        const rawDataA = `
+#,Cohort Baseline
+#1,1988-1989
+#2,2003
+#3,1987-1990
+#4/I,1983 - 1993
+#4/II,1995
+#4/III,2005
+#5,1977
+#6,2005 - 2006
+#7,1975-1976
+#8,2006-2011
+#9,2005-2007
+#10,2004
+#11,2008
+#12,2000
+#13,2007-2008
+#14/I,1991-1992
+#14/II,2013-2014
+#15,2013-2014
+#16,2006-2009
+#17/Mark I,1991-1992
+#17/Mark II,2002-2003
+#18,2007
+#19,2008
+#20,2009-2010
+#21,2009-2010
+#22,2011-2012
+#23,N/A
+#24,2018-2019
+#25,2003-2004
+#26,N/A
+#27,1995
+#28,2003
+#29,1986
+#30,1981
+#31,2012
+#32,2003
+#33,2011
+#34,N/A
+#35,1950 - 1970
+#36,2013 - 2015
+#37,2001
+        `.trim();
+
+        function parseCohortBaselineA(baselineStr) {
+            if (!baselineStr || baselineStr.toLowerCase() === 'n/a') return null;
+            let cleanStr = baselineStr.replace(/^(Cohort [^:]+:\s*|Mark [^,]+,\s*)/i, '').trim();
+            if (cleanStr.endsWith(',')) cleanStr = cleanStr.slice(0, -1);
+            cleanStr = cleanStr.replace(/,/g, '');
+            const rangeMatch = cleanStr.match(/(\d{4})\s*[-–]\s*(\d{4})/);
+            if (rangeMatch) return [parseInt(rangeMatch[1]), parseInt(rangeMatch[2]) + 1];
+            const singleYearMatch = cleanStr.match(/^(\d{4})$/);
+            if (singleYearMatch) return [parseInt(singleYearMatch[1]), parseInt(singleYearMatch[1]) + 1];
+            return null;
+        }
+
+        const linesA = rawDataA.split('\n');
+        const processedDataA = [];
+        let minDataYearA = Infinity;
+        let maxDataYearA = -Infinity;
+
+        for (let i = 1; i < linesA.length; i++) {
+            const parts = linesA[i].split(/,(.+)/);
+            if (parts.length < 2) continue;
+            const studyId = parts[0].trim();
+            const cohortBaselineStr = parts[1].trim();
+            if (!studyId || !cohortBaselineStr || cohortBaselineStr.toLowerCase() === 'n/a') continue;
+            
+            const yearRange = parseCohortBaselineA(cohortBaselineStr);
+            if (yearRange) {
+                const baseStudyId = studyId.split('/')[0]; // Get base ID (e.g., "#4" from "#4/I")
+                const color = getOrAssignColor(baseStudyId); // Get or assign color for the base ID
+
+                processedDataA.push({
+                    studyId: studyId, // Full ID like "#4/I"
+                    originalBaselineText: cohortBaselineStr,
+                    parsedRange: yearRange,
+                    color: color // Store the determined color
+                });
+                minDataYearA = Math.min(minDataYearA, yearRange[0]);
+                maxDataYearA = Math.max(maxDataYearA, yearRange[1]);
+            }
+        }
+
+        const chartLabelsA = processedDataA.map(d => d.studyId);
+        const chartDataPointsA = processedDataA.map(d => d.parsedRange);
+        const backgroundColorsA = processedDataA.map(d => d.color); // Use pre-assigned color
+        const borderColorsA = backgroundColorsA.map(color => color ? color.replace('0.7', '1') : 'rgba(0,0,0,1)');
+
+
+        let chartMinXA = Math.floor(minDataYearA / 5) * 5;
+        const chartMaxXA = Math.ceil(maxDataYearA / 5) * 5;
+        if (minDataYearA === 1950 && chartMinXA < 1970) {
+             chartMinXA = 1970;
+        }
+
+        const chartContainerDivA = document.getElementById('chartContainerA');
+        const numStudiesA = processedDataA.length;
+        const dynamicHeightA = Math.max(400, numStudiesA * 30 + 100); 
+        chartContainerDivA.style.height = dynamicHeightA + 'px';
+
+        const ctxA = document.getElementById('cohortChart').getContext('2d');
+        new Chart(ctxA, {
+            type: 'bar',
+            data: {
+                labels: chartLabelsA,
+                datasets: [{
+                    label: 'Cohort Baseline Period',
+                    data: chartDataPointsA,
+                    backgroundColor: backgroundColorsA,
+                    borderColor: borderColorsA,
+                    borderWidth: 1,
+                    barPercentage: 0.7,
+                    categoryPercentage: 0.85
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        type: 'linear', min: chartMinXA, max: chartMaxXA,
+                        title: { display: true, text: 'Year', font: { size: 14, weight: '600' }, color: '#4B5563' },
+                        ticks: { stepSize: 5, color: '#4B5563', callback: function(value) { return value.toString(); } },
+                        grid: { color: '#E5E7EB' }
+                    },
+                    y: {
+                        title: { display: true, text: 'Study ID', font: { size: 14, weight: '600' }, color: '#4B5563' },
+                        ticks: { color: '#4B5563' }, grid: { display: false }
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#1F2937', titleFont: { size: 14, weight: 'bold' }, bodyFont: { size: 12 },
+                        callbacks: {
+                            label: function(context) {
+                                const studyDetail = processedDataA[context.dataIndex];
+                                return `Period: ${studyDetail.originalBaselineText}`;
+                            },
+                            title: function(tooltipItems) { return `Study: ${tooltipItems[0].label}`; }
+                        }
+                    }
+                },
+                layout: { padding: { top: 10, right: 20, bottom: 10, left: 10 } }
+            }
+        });
+    </script>
+</body>
+</html>
